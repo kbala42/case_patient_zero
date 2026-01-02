@@ -1,134 +1,87 @@
 import streamlit as st
 import networkx as nx
 import matplotlib.pyplot as plt
-import numpy as np
 import random
 
-# Sayfa Ayarları
-st.set_page_config(page_title="Vaka: Sıfırıncı Hasta", layout="wide")
+def run():
+    st.title("🕵️‍♂️ Vaka 1: Hayalet Protokol (Ağlar)")
+    
+    # --- HİKAYE MODU ---
+    if 'math_mode' not in st.session_state:
+        st.session_state['math_mode'] = False
 
-st.title("🕵️‍♂️ Vaka: Görünmez Ağ (Sıfırıncı Hasta)")
-st.markdown("""
-**Sherlock'un Notu:** "Bir hastalığı (veya bilgiyi) durdurmak istiyorsan, nereden başladığını bulmalısın. 
-Gözlerinle bakarsan karmaşa görürsün, matrislerle bakarsan yolu görürsün."
-""")
-
-# --- SOL PANEL: AYARLAR (LABORATUVAR) ---
-with st.sidebar:
-    st.header("🔬 Laboratuvar Ayarları")
-    num_nodes = st.slider("İnsan Sayısı (Düğüm)", 10, 50, 20)
-    infection_prob = st.slider("Bulaşma İhtimali", 0.1, 1.0, 0.5)
-    steps = st.slider("Zaman Adımı (Gün)", 1, 5, 2)
-    
-    if st.button("Simülasyonu Başlat / Sıfırla"):
-        st.session_state['network'] = None
-        st.session_state['zero_patient'] = None
-
-# --- FONKSİYONLAR ---
-
-def create_social_network(n):
-    # Rastgele bir sosyal ağ oluştur (Watts-Strogatz modeli - "Küçük Dünya" teorisi)
-    # Bu model gerçek insan ilişkilerini en iyi simüle eden modeldir.
-    G = nx.watts_strogatz_graph(n, k=4, p=0.1)
-    return G
-
-def spread_virus(G, source, steps, prob):
-    # Virüsü yayma simülasyonu
-    infected = {source}
-    current_spreaders = {source}
-    
-    history = [list(infected)] # Her adımda kimler hasta oldu kaydet
-    
-    for _ in range(steps):
-        new_infected = set()
-        for person in current_spreaders:
-            # Komşularına bak
-            neighbors = list(G.neighbors(person))
-            for neighbor in neighbors:
-                if neighbor not in infected:
-                    if random.random() < prob:
-                        new_infected.add(neighbor)
-        
-        infected.update(new_infected)
-        current_spreaders = new_infected # Sadece yeni hastalar bulaştırır (basit model)
-        history.append(list(infected))
-    
-    return list(infected), history
-
-# --- ANA AKIŞ ---
-
-# 1. Ağı Oluştur (Eğer yoksa)
-if 'network' not in st.session_state or st.session_state['network'] is None:
-    G = create_social_network(num_nodes)
-    zero_patient = random.choice(list(G.nodes()))
-    
-    st.session_state['network'] = G
-    st.session_state['zero_patient'] = zero_patient
-
-G = st.session_state['network']
-true_zero = st.session_state['zero_patient']
-
-# 2. Virüsü Yay
-infected_list, history = spread_virus(G, true_zero, steps, infection_prob)
-
-# --- GÖRSELLEŞTİRME ---
-
-col1, col2 = st.columns([2, 1])
-
-with col1:
-    st.subheader("🏙️ Şehrin Kuşbakışı Görünümü")
-    
-    fig, ax = plt.subplots(figsize=(8, 6))
-    pos = nx.spring_layout(G, seed=42) # Sabit düzen
-    
-    # Sağlıklıları Çiz
-    healthy = [n for n in G.nodes() if n not in infected_list]
-    nx.draw_networkx_nodes(G, pos, nodelist=healthy, node_color='lightblue', node_size=300, label="Sağlıklı")
-    
-    # Hastaları Çiz (Kırmızı)
-    nx.draw_networkx_nodes(G, pos, nodelist=infected_list, node_color='red', node_size=300, label="Enfekte")
-    
-    # Bağlantıları Çiz
-    nx.draw_networkx_edges(G, pos, alpha=0.3)
-    
-    # Etiketleri Çiz
-    nx.draw_networkx_labels(G, pos, font_size=10)
-    
-    plt.legend(["Sağlıklı", "Enfekte"])
-    st.pyplot(fig)
-
-with col2:
-    st.subheader("🕵️‍♂️ Dedektif Paneli")
-    st.write(f"Toplam Nüfus: {num_nodes}")
-    st.write(f"Enfekte Olanlar: {len(infected_list)}")
-    
-    st.info("Kırmızı düğümlere bak. Sence bu salgın HANGİSİNDEN başladı?")
-    
-    guess = st.selectbox("Tahminini Seç (Düğüm Numarası):", sorted(infected_list))
-    
-    if st.button("Tahmini Kontrol Et"):
-        if guess == true_zero:
-            st.success(f"TEBRİKLER! Sherlock gibi düşündün. Kaynak: {true_zero}")
-            st.balloons()
-        else:
-            st.error(f"Yanlış. Gerçek kaynak {true_zero} idi. Ama pes etme Watson!")
-            
-    # --- İPUCU KUTUSU (Sezgiselden Matematiğe Geçiş) ---
-    with st.expander("💡 İpucu: Mühendis Gibi Düşün (Matematiksel Analiz)"):
-        st.write("""
-        Gözle bulmak zor değil mi? Bilgisayarlar bunu nasıl yapar?
-        **'Merkezilik' (Centrality)** ölçeriz.
-        
-        Enfekte grubun tam ortasında kim var? Enfekte olan arkadaşlarına en yakın olan kişi kim?
+    if not st.session_state['math_mode']:
+        st.markdown("""
+        **Görev:** Londra sunucularına bir virüs bulaştı. Virüsün yayıldığı "Ana Sunucuyu" (Patient Zero) bulmalısın.
+        **Ödül:** Eğer ana sunucuyu bulursan, virüsün kaynak kodundaki **Gizli Ses Kaydını (.wav)** ele geçireceğiz.
         """)
+        st.info("💡 İpucu: Hangi nokta diğerlerine en çok hükmediyor?")
+    else:
+        st.markdown("""
+        ### 📐 MATEMATİKSEL YÜZLEŞME
+        **Konu:** Çizge Teorisi (Graph Theory) - Merkezilik (Centrality)
         
-        # Basit bir matematiksel ipucu hesaplama
-        # Sadece enfekte olanlardan oluşan bir alt-grafik (subgraph) oluştur
-        sub_G = G.subgraph(infected_list)
-        # Closeness Centrality (Yakınlık Merkeziliği) hesapla
-        centrality = nx.closeness_centrality(sub_G)
-        likely_suspect = max(centrality, key=centrality.get)
+        Mennan Usta'nın "Çeşme Başı" dediği şey, matematikte **Closeness Centrality** formülüdür:
         
-        st.write(f"📊 Matematiksel Analiz (Algoritma) diyor ki:")
-        st.code(f"En Olası Şüpheli: {likely_suspect}")
-        st.write("(Not: Bu algoritma her zaman %100 bilmez, ama en iyi tahmini yapar.)")
+        $$ C(x) = \\frac{1}{\\sum_{y} d(x, y)} $$
+        
+        * $d(x, y)$: $x$ düğümü ile $y$ düğümü arasındaki en kısa yol.
+        * Bir düğüm diğerlerine ne kadar "yakınsa", bilgi (veya virüs) o kadar hızlı yayılır.
+        """)
+
+    # --- SİMÜLASYON ---
+    col1, col2 = st.columns([2, 1])
+
+    with col1:
+        # Ağ Oluşturma
+        if 'G' not in st.session_state:
+            st.session_state['G'] = nx.watts_strogatz_graph(15, 3, 0.3, seed=42)
+            # Rastgele bir düğümü "Hasta Sıfır" yap ama söyleme
+            st.session_state['true_zero'] = 4 # Sabitliyoruz ki senaryo çalışsın
+
+        G = st.session_state['G']
+        pos = nx.spring_layout(G, seed=42)
+        
+        # Çizim
+        fig, ax = plt.subplots(figsize=(6, 4))
+        nx.draw(G, pos, with_labels=True, node_color='skyblue', edge_color='gray', node_size=500)
+        # Gerçek hastayı kırmızı yap (Sadece analizden sonra veya hileyle görünür normalde)
+        # Eğitim amaçlı gizli tutuyoruz.
+        st.pyplot(fig)
+
+    with col2:
+        st.subheader("📡 Sunucu Analizi")
+        guess = st.number_input("Şüpheli Sunucu ID'si:", min_value=0, max_value=14, step=1)
+        
+        if st.button("Sistemi Tara"):
+            if guess == st.session_state['true_zero']:
+                st.success("BAŞARILI! Kaynak Sunucu Tespit Edildi.")
+                st.balloons()
+                
+                # --- ENVANTER GÜNCELLEME (HİKAYE BAĞLANTISI) ---
+                st.session_state['inventory_audio_file'] = "Project_Moriarty_Log.wav"
+                st.toast("🎒 Envantere Eklendi: Project_Moriarty_Log.wav")
+                st.write("📂 **Bulunan Dosya:** Bu ses kaydı çok gürültülü. Vaka 2'de bunu temizlemen gerekecek.")
+                
+            else:
+                st.error("HATA: Bu sunucu temiz. Virüs buradan yayılmamış.")
+
+    st.divider()
+
+    # --- ANALOJİYİ KIR BUTONU ---
+    if st.button("🔴 Kırmızı Hap: Analojiyi Kır (Matematiği Göster/Gizle)"):
+        st.session_state['math_mode'] = not st.session_state['math_mode']
+        st.rerun()
+        
+    # --- REALITY CHECK (KOD SORGUSU) ---
+    with st.expander("🛠️ Kod Müdahalesi (Reality Check)"):
+        st.write("**Soru:** Eğer `nx.watts_strogatz_graph` fonksiyonundaki `p=0.3` değerini `p=0.0` yaparsan ağın şekli neye döner?")
+        answer = st.radio("Cevabını Seç:", ["Tamamen Rastgele (Kaos)", "Kusursuz Bir Çember (Düzen)", "Yıldız Şekli"])
+        
+        if answer == "Kusursuz Bir Çember (Düzen)":
+            st.success("Doğru! p=0 olasılığı, hiç rastgele bağ olmadığını, herkesin sadece yanındakiyle konuştuğunu gösterir.")
+        elif answer:
+            st.error("Yanlış. Watts-Strogatz modelinde p, rastgelelik katsayısıdır. 0 demek, sıfır rastgelelik demektir.")
+
+if __name__ == "__main__":
+    run()
